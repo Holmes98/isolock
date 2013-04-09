@@ -28,6 +28,10 @@ The `-n` option, which allows you to request **N** boxes at once is designed to 
 
 **isolock** locks are owned by a calling process. The lock is valid until freed, or until the calling process terminates (ie. while the PID remains valid). If you wish to transfer the lock from one process to another, you can overwrite the new PID and start_time (in jiffies since boot) in the format "%d:%llu\n" to the lock directory, which by default is `printf("/var/lock/isolate/lock/%d.pidlock", box_id)`.
 
+### License
 
+Copyright © 2013 Ronald Ping Man Chan
+
+This source code is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/. All source code, unless otherwise specified, is released under the MPL v2.
 
 
