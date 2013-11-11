@@ -123,6 +123,8 @@ int freelock(int box_id) {
   }
   
   // lock freeing authorised
+  sprintf(cmd, "isolate -b%d --cleanup 2>/dev/null 1>&2", box_id);
+  int ignorestat = system(cmd);
   sprintf(fname2, "%s/free/%d.pidlock", lockdir, box_id);
   int stat = rename(fname, fname2);
   if (stat == 0) {
