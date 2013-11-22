@@ -10,7 +10,6 @@
 #include <ctime>
 #include <cmath>
 #include <unistd.h>
-#include <pwd.h>
 #include <getopt.h>
 #include <sys/stat.h>
 #include <sys/file.h>
@@ -90,10 +89,7 @@ bool init(const char *dir) {
 
 bool initlockdir() {
   if (!init(lockdir)) return false;
-  struct passwd *pw = getpwuid(geteuid());
-  if (chown(lockdir,geteuid(),pw->pw_gid)!=0) return false;
   if (chmod(lockdir, 0755)!=0) return false;
-  return true;
 }
 
 bool _alarmed = false;
