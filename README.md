@@ -4,7 +4,7 @@
 
 ### Installation
 
-First install **isolate**, then download this git repository, and run **make**. Copy bin/isolock to a desired location, and make sure it is on your path. It is designed to run setuid as root, so `chown` and `chmod` it.
+First install **isolate**, then download this git repository, and run **make**. Copy bin/isolock to a desired location, and make sure it is on your path. It is designed to run setuid and setgid with a separate user, so `chown` and `chmod` it.
 
 ```bash
 git clone git://github.com/ronalchn/isolock.git

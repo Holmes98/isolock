@@ -25,7 +25,7 @@
 using namespace std;
 
 const char lockdir[] = "/var/lock/isolate";
-char *isolate_directory = NULL, *fname = NULL, *fname2 = NULL, *cmd = NULL, *initcmd = NULL;
+char *isolate_directory = NULL, *fname = NULL, *fname2 = NULL, *cmd = NULL, *initcmd = NULL, *freecmd = NULL;
 char *optstring = NULL;
 int isolate_boxes = 0;
 int ppid = -1;
@@ -101,7 +101,7 @@ bool alarmed() {
 
 list<int> locked;
 
-int freelock(int box_id) {
+int freelock(int box_id, char *optstring = NULL) {
   int pid, pidlock;
   // check that box_id belongs to process
   sprintf(fname, "%s/lock/%d.pidlock", lockdir, box_id);
@@ -123,8 +123,9 @@ int freelock(int box_id) {
   }
   
   // lock freeing authorised
-  sprintf(cmd, "isolate -b%d --cleanup 2>/dev/null 1>&2", box_id);
-  int ignorestat = system(cmd);
+  if (optstring == NULL) sprintf(freecmd, "isolate -b%d --cleanup 2>/dev/null 1>&2", box_id);
+  else sprintf(freecmd, "isolate %s -b%d --cleanup 2>/dev/null 1>&2", optstring, box_id);
+  int ignorestat = system(freecmd);
   sprintf(fname2, "%s/free/%d.pidlock", lockdir, box_id);
   int stat = rename(fname, fname2);
   if (stat == 0) {
@@ -165,7 +166,7 @@ void validate_option(char *s) {
     panic(7);
   }
   for (int i=0;s[i]!=0;i++) {
-    if (s[i] != '-' && s[i] != '=' && (s[i] < 'a' || s[i] > 'z') && (s[i] < 'A' && s[i] > 'Z')) {
+    if (s[i] != '-' && s[i] != '=' && (s[i] < 'a' || s[i] > 'z') && (s[i] < 'A' || s[i] > 'Z') && s[i] != '/' && s[i] != ':' && (s[i] < '0' || s[i] > '9')) {
       fprintf(stderr, "`%s` is an invalid option.\n", s);
       panic(7);
     }
@@ -210,15 +211,16 @@ void sig_panic(int signum) {
 }
 
 bool init() {
+  if (!init(lockdir)) return false;
   ppid = getppid();
   if (!isolate_detect()) return false;
   init(fname,max(strlen(isolate_directory),strlen(lockdir))+50);
   init(fname2,max(strlen(isolate_directory),strlen(lockdir))+50);
   init(cmd,2*max(strlen(isolate_directory),strlen(lockdir))+50);
+  init(freecmd,150);
   ppid_starttime = get_starttime(ppid);
   pid_starttime = get_starttime(getpid());
   seedrand();
-  if (!init(lockdir)) return false;
   sprintf(fname, "%s/lock", lockdir);
   if (!init(fname)) return false;
   sprintf(fname, "%s/free", lockdir);
@@ -400,7 +402,8 @@ int getlocks(int numlocks = 1, double timeout = 0) {
 
 void usage() {
   fprintf(stderr, "%s", "\
-Usage: isolock ([-l|--lock] [<options>] [--] [<box_id(s)>] <isolate-init-options>|(-f|--free) [--] <box_id(s)>)\n\
+Usage: isolock [-l|--lock] [<options>] [--] [<box_id(s)>] [<isolate-init-options>]\n\
+       isolock (-f|--free) [--] <box_id(s)> [<isolate-clean-options>]\n\
 \n\
 Options:\n\
 -l, --lock (default)\tAcquires a lock on a box_id,\n\
@@ -417,6 +420,7 @@ Options:\n\
 Arguments:\n\
 <box_id(s)>\t\tList of boxes (separate arguments, does not work with -n option)\n\
 <isolate-init-options>\tOptions to pass to isolate, as `isolate --init <isolate-init-options>`\n\
+<isolate-clean-options>\tOptions to pass to isolate, as `isolate --cleanup <isolate-clean-options>`\n\
 \n\
 Examples:\n\
 isolock -l 4 6\n\
@@ -443,7 +447,8 @@ static const struct option long_opts[] = {
   {"free", 0, NULL, 'f'},
   {"help", 0, NULL, 'h'},
   {"timeout", 1, NULL, 't'},
-  {"noinit", 0, NULL, 'I'}
+  {"noinit", 0, NULL, 'I'},
+  {NULL, 0, 0, 0}
 };
 
 int main(int argc, char **argv) {
@@ -486,9 +491,9 @@ int main(int argc, char **argv) {
     init(optstring,optlength);
     int optn = 0;
     for (int i=id_end;i<argc;i++) {
-      validate_option(argv[optind]);
-      sprintf(optstring+optn," %s",argv[optind]);
-      optn+=strlen(argv[optind])+1;
+      validate_option(argv[i]);
+      sprintf(optstring+optn," %s",argv[i]);
+      optn+=strlen(argv[i])+1;
     }
 
     if (optind < id_end) {
@@ -509,7 +514,7 @@ int main(int argc, char **argv) {
         return 1; // no box locked
       }
       else if (locked.size() < n) {
-        fprintf(stderr, "Could not acquire %d locks, but could not release the %lu acquired locks.\n", n, locked.size());
+        fprintf(stderr, "Could not acquire %d locks, but could not release the %u acquired locks.\n", n, locked.size());
       }
     }
     // success
@@ -531,20 +536,38 @@ int main(int argc, char **argv) {
     return 0;
   }
   else if (mode == 'f') {
-    if (optind >= argc) {
+    int box_id = -1;
+    int id_end = optind;
+    while (id_end < argc && argv[id_end][0] != '-') id_end++;
+
+    int optlength = 2;
+    for (int i=id_end;i<argc;i++) optlength += strlen(argv[i])+2;
+    init(optstring,optlength);
+    int optn = 0;
+    for (int i=id_end;i<argc;i++) {
+      validate_option(argv[i]);
+      sprintf(optstring+optn," %s",argv[i]);
+      optn+=strlen(argv[i])+1;
+    }
+    init(freecmd, strlen(optstring)+100);
+
+    if (optind >= id_end) {
       fprintf(stderr, "No box_id was specified - cannot free lock.\n");
       return 4;
     }
-    for (int i=optind;i<argc;i++) {
-      validate(atoi(argv[i]));
+    else {
+      for (int i=optind;i<id_end;i++) {
+        box_id = atoi(argv[i]);
+        validate(box_id);
+      }
+      int fails=0;
+      for (int i=optind;i<id_end;i++) {
+        box_id = atoi(argv[i]);
+        if (freelock(box_id, optstring) == 0) printf("%d\n", box_id);
+        else fails++;
+      }
+      return fails>0;
     }
-    int fails=0;
-    for (int i=optind;i<argc;i++) {
-      int box_id = atoi(argv[i]);
-      if (freelock(box_id) == 0) printf("%d\n", box_id);
-      else fails++;
-    }
-    return fails>0;
   }
   else {
     fprintf(stderr, "Unknown mode.\n");
