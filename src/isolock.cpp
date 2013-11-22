@@ -10,6 +10,7 @@
 #include <ctime>
 #include <cmath>
 #include <unistd.h>
+#include <pwd.h>
 #include <getopt.h>
 #include <sys/stat.h>
 #include <sys/file.h>
@@ -85,6 +86,14 @@ bool init(const char *dir) {
   else if (mkdir(dir, 0777) == 0) return true;
   fprintf(stderr, "Lock directory %s could not be created.\n", fname);
   return false;
+}
+
+bool initlockdir() {
+  if (!init(lockdir)) return false;
+  struct passwd *pw = getpwuid(geteuid());
+  if (chown(lockdir,geteuid(),pw->pw_gid)!=0) return false;
+  if (chmod(lockdir, 0755)!=0) return false;
+  return true;
 }
 
 bool _alarmed = false;
@@ -211,7 +220,7 @@ void sig_panic(int signum) {
 }
 
 bool init() {
-  if (!init(lockdir)) return false;
+  if (!initlockdir()) return false;
   ppid = getppid();
   if (!isolate_detect()) return false;
   init(fname,max(strlen(isolate_directory),strlen(lockdir))+50);
