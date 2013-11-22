@@ -90,6 +90,7 @@ bool init(const char *dir) {
 bool initlockdir() {
   if (!init(lockdir)) return false;
   if (chmod(lockdir, 0755)!=0) return false;
+  return true;
 }
 
 bool _alarmed = false;
