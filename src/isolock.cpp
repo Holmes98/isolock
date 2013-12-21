@@ -83,7 +83,7 @@ bool init(const char *dir) {
   struct stat st;
   if (stat(dir, &st) == 0 && S_ISDIR(st.st_mode)) return true;
   else if (mkdir(dir, 0777) == 0) return true;
-  fprintf(stderr, "Lock directory %s could not be created.\n", fname);
+  fprintf(stderr, "Lock directory %s could not be created.\n", dir);
   return false;
 }
 
