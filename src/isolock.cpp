@@ -39,23 +39,9 @@ void init(char *&s, int n) {
 }
 
 bool isolate_detect() {
-  // read isolate config
-  FILE *isolate_conf = popen("isolate --version","r");
-  size_t sz=256;
-  char *line = new char[sz];
-  const char directory_key[] = "Sandbox directory: ", credentials_key[] = "Sandbox credentials: ";
-  while (getline(&line, &sz, isolate_conf) != -1) {
-    if (strncmp(line, directory_key, strlen(directory_key)) == 0) {
-      init(isolate_directory,strlen(line)-strlen(directory_key)+10);
-      strcpy(isolate_directory, line+strlen(directory_key));
-      isolate_directory[strlen(isolate_directory)-1] = 0;
-    }
-    else if (strncmp(line, credentials_key, strlen(credentials_key)) == 0) {
-      int a,b,c,d;
-      if (sscanf(line+strlen(credentials_key), "uid=%d-%d gid=%d-%d", &a, &b, &c, &d)==4 && b-a==d-c) isolate_boxes = b-a+1;
-    }
-  }
-  pclose(isolate_conf);
+  // TODO: read isolate config from /usr/local/etc/isolate
+  isolate_directory = "/var/local/lib/isolate";
+  isolate_boxes = 1000;
   if (isolate_directory == NULL) {
     fprintf(stderr,"isolate directory could not be detected.\n");
     return false;
